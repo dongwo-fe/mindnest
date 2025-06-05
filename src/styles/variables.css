@@ -1,0 +1,42 @@
+:root {
+  /* 主色调 */
+  --accent-color: #4f46e5;
+  --accent-color-light: rgba(79, 70, 229, 0.1);
+  --accent-color-dark: #4338ca;
+
+  /* 背景色 */
+  --background-primary: #ffffff;
+  --background-secondary: #f8fafc;
+  --background-hover: #f1f5f9;
+
+  /* 文本颜色 */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+
+  /* 边框颜色 */
+  --border-color: #e2e8f0;
+}
+
+/* 深色主题 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 主色调 */
+    --accent-color: #818cf8;
+    --accent-color-light: rgba(129, 140, 248, 0.1);
+    --accent-color-dark: #6366f1;
+
+    /* 背景色 */
+    --background-primary: #0f172a;
+    --background-secondary: #1e293b;
+    --background-hover: #334155;
+
+    /* 文本颜色 */
+    --text-primary: #f8fafc;
+    --text-secondary: #e2e8f0;
+    --text-tertiary: #94a3b8;
+
+    /* 边框颜色 */
+    --border-color: #334155;
+  }
+} 

@@ -1,0 +1,409 @@
+.layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.sidebar {
+  position: relative;
+  background-color: #fafbfc;
+  border-right: 1px solid #ececec;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex-shrink: 0;
+  width: 240px;
+  min-width: 180px;
+  max-width: 320px;
+  box-shadow: 1px 0 0 #f0f0f0;
+}
+
+.expanded {
+  width: 240px;
+}
+
+.collapsed {
+  width: 64px;
+}
+
+.sidebarHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1rem 0.5rem 1rem;
+  border-bottom: 1px solid #ececec;
+  background-color: #fafbfc;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 40px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background-color: #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.username {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #222;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebarContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  min-height: 0;
+}
+
+/* 目录树样式 */
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin-top: 0; /* 消除默认顶部边距 */
+}
+.treeItem {
+  display: block; /* 确保块级显示占满整行 */
+  height: auto;
+  min-height: 38px;
+  padding: 6px 0px 6px 16px; /* 合并上下内边距 */
+  border-radius: 6px;
+  font-size: 15px;
+  color: #222;
+  /* 内部容器使用flex布局 */
+  & > div {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    justify-content: space-between; /* 调整子元素间距 */
+    align-self: stretch; /* 拉伸填充父级高度 */
+  }
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+.treeItem:hover {
+  background: #f0f2f5;
+}
+.treeItem.selected {
+  background: #e6f0fa;
+  color: #1677ff;
+  font-weight: 600;
+}
+.treeItem .arrow {
+  margin-right: 6px;
+  font-size: 14px;
+  line-height: inherit; /* 继承父容器行高 */
+  vertical-align: middle; /* 垂直居中对齐 */
+  color: #bdbdbd;
+  transition: transform 0.2s ease-in-out;
+  will-change: transform;
+}
+.treeItem .arrow.open {
+  transform: rotate(90deg);
+  color: #1677ff;
+}
+.treeItem .title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: inherit; /* 继承父容器行高 */
+  vertical-align: middle; /* 垂直居中对齐 */
+}
+.treeItem .actions {
+  margin-left: 8px;
+  display: flex;
+  gap: 4px;
+}
+.treeItem .actions button {
+  background: none;
+  border: none;
+  color: #bdbdbd;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+.treeItem .actions button:hover {
+  background: #e6f0fa;
+  color: #1677ff;
+}
+.treeItem.level-1 {
+  background: linear-gradient(90deg, transparent 28px, #e9ecef 28px, #e9ecef 29px, transparent 29px);
+}
+.treeItem.level-2 {
+  background: linear-gradient(90deg, transparent 44px, #e9ecef 44px, #e9ecef 45px, transparent 45px);
+}
+.treeItem.level-3 {
+  background: linear-gradient(90deg, transparent 60px, #e9ecef 60px, #e9ecef 61px, transparent 61px);
+}
+.treeItem .addChildBtn {
+  display: none;
+  /* right: 8px; */
+  /* top: 50%; */
+  /* transform: translateY(-50%); */
+  background: #e6f0fa;
+  color: #1677ff;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  /* line-height: 24px; */
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 2;
+}
+.treeItem:hover .addChildBtn,
+.treeItem.treeItemHover .addChildBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.treeItem .addChildBtn:hover {
+  background: #1677ff;
+  color: #fff;
+}
+
+.sidebarFooter {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #ececec;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background-color: #fafbfc;
+}
+
+.toolbarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  color: #495057;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
+}
+.toolbarButton span {
+  display: none;
+}
+.toolbarButton:hover {
+  background-color: #e6f0fa;
+  color: #1677ff;
+}
+
+.sidebarResizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  z-index: 10;
+}
+.sidebarResizer:hover {
+  background-color: #4dabf7;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.header {
+  padding: 0.75rem 1.5rem 0.75rem 1.5rem;
+  border-bottom: 1px solid #ececec;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  height: 56px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6c757d;
+  font-size: 0.95rem;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sidebarSearchInput {
+  width: 100%;
+  padding: 0.5rem 1.5rem 0.5rem 2.2rem;
+  border: none;
+  border-radius: 20px;
+  font-size: 1rem;
+  background-color: #f3f4f6;
+  color: #222;
+  box-shadow: none;
+  outline: none;
+  transition: background 0.2s, box-shadow 0.2s;
+  background-image: url('data:image/svg+xml;utf8,<svg fill="%23999" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99a1 1 0 001.41-1.41l-4.99-5zm-6 0C8.01 14 6 11.99 6 9.5S8.01 5 10.5 5 15 7.01 15 9.5 12.99 14 10.5 14z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: 14px center;
+  margin-bottom: 0.5rem;
+}
+.sidebarSearchInput:focus {
+  background-color: #fff;
+  box-shadow: 0 0 0 2px #e6f0fa;
+}
+
+.homeButton {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: 38px;
+  padding: 0 12px 0 16px;
+  border: none;
+  background: none;
+  color: #222;
+  font-size: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.homeButton:hover {
+  background: #f0f2f5;
+}
+.homeButton.selected {
+  background: #e6f0fa;
+  color: #1677ff;
+  font-weight: 600;
+}
+.homeIcon {
+  font-size: 1.1em;
+  margin-right: 2px;
+}
+.homeText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  min-height: 0;
+}
+
+/* 自定义滚动条样式 */
+.sidebarContent::-webkit-scrollbar,
+.content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.sidebarContent::-webkit-scrollbar-track,
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebarContent::-webkit-scrollbar-thumb,
+.content::-webkit-scrollbar-thumb {
+  background-color: #e0e0e0;
+  border-radius: 3px;
+}
+
+.sidebarContent::-webkit-scrollbar-thumb:hover,
+.content::-webkit-scrollbar-thumb:hover {
+  background-color: #bdbdbd;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    z-index: 100;
+    height: 100%;
+    transform: translateX(0);
+  }
+
+  .collapsed {
+    transform: translateX(-100%);
+  }
+
+  .searchInput {
+    width: 140px;
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60%;
+  color: #888;
+  font-size: 15px;
+  text-align: center;
+  margin-top: 40px;
+}
+.emptyState img {
+  width: 90px;
+  height: 90px;
+  margin-bottom: 18px;
+  opacity: 0.9;
+}
+.emptyState a {
+  color: #1677ff;
+  text-decoration: none;
+  margin-left: 4px;
+}
+.emptyState a:hover {
+  text-decoration: underline;
+}
