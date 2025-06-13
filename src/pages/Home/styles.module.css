@@ -1,24 +1,22 @@
 .container {
-  display: flex;
-  flex-direction: column;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
   height: 100vh;
-  background-color: #fff;
+  overflow-y: auto;
 }
 
 .header {
-  border-bottom: 1px solid #e8e8e8;
-  padding: 20px 30px;
-  background-color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 30px;
 }
 
 .header h1 {
-  margin: 0;
   font-size: 24px;
   color: #333;
+  margin: 0;
 }
 
 .createButton {
@@ -27,112 +25,123 @@
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 14px;
+  transition: background-color 0.2s;
 }
 
 .createButton:hover {
   background-color: #339af0;
 }
 
-.content {
-  flex: 1;
-  padding: 30px;
-  background-color: rgb(245, 245, 245);
-  overflow-y: auto;
-}
-
-.emptyState {
-  text-align: center;
-  color: #666;
-  margin-top: 100px;
-}
-
-.noteList {
+.notesGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
   padding: 20px 0;
 }
 
-.noteItem {
-  background-color: #fff;
-  border: 1px solid #e8e8e8;
+.noteCard {
+  background: white;
   border-radius: 8px;
   padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
-.noteItem:hover {
+.noteCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.noteItem h2 {
-  margin: 0 0 10px 0;
+.noteTitle {
   font-size: 18px;
   color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin: 0 0 12px 0;
+  font-weight: 600;
 }
 
-.tagsList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.tag {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  color: white;
-  background-color: #4dabf7;
-}
-
-.noteMeta {
-  font-size: 12px;
+.noteContent {
+  flex: 1;
   color: #666;
-  margin-bottom: 10px;
-}
-
-.notePreview {
   font-size: 14px;
-  color: #666;
-  line-height: 1.6;
+  line-height: 1.5;
+  overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.noteContent :global(p) {
+  margin: 0;
+}
+
+.noteContent :global(h1),
+.noteContent :global(h2),
+.noteContent :global(h3),
+.noteContent :global(h4),
+.noteContent :global(h5),
+.noteContent :global(h6) {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.noteMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #999;
+}
+
+.noteDate {
+  color: #999;
+}
+
+.favoriteIcon {
+  color: #ffd700;
+  font-size: 16px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 16px;
+  color: #666;
 }
 
 .error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 16px;
   color: #ff4d4f;
-  text-align: center;
-  margin-top: 100px;
 }
 
 /* 自定义滚动条样式 */
-.content::-webkit-scrollbar {
+.container::-webkit-scrollbar {
   width: 8px;
 }
 
-.content::-webkit-scrollbar-track {
+.container::-webkit-scrollbar-track {
   background: #f1f3f5;
 }
 
-.content::-webkit-scrollbar-thumb {
+.container::-webkit-scrollbar-thumb {
   background: #ced4da;
   border-radius: 4px;
 }
 
-.content::-webkit-scrollbar-thumb:hover {
+.container::-webkit-scrollbar-thumb:hover {
   background: #adb5bd;
 }
 
@@ -221,4 +230,20 @@
 
 .confirmActions button:not(.dangerButton):hover {
   background-color: #f3f4f6;
+}
+
+.loadingMore,
+.noMore {
+  text-align: center;
+  padding: 20px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.loadingMore {
+  color: #4dabf7;
+}
+
+.noMore {
+  color: #94a3b8;
 } 

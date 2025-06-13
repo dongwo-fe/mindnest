@@ -33,18 +33,22 @@ import hljs from "highlight.js";
 const extensions = [...defaultExtensions, slashCommand];
 
 const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
-  const [initialContent, setInitialContent] = useState<JSONContent|null>(null);
+  const [initialContent, setInitialContent] = useState<JSONContent | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState("Saved");
   const [charsCount, setCharsCount] = useState();
   const [controller, setController] = useState<NoteController | null>(null);
-  const currentNoteIdRef = useRef<string | undefined>(noteId);
   const [editorKey, setEditorKey] = useState<string>(noteId || "default");
 
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [openLink, setOpenLink] = useState(false);
   const [openAI, setOpenAI] = useState(false);
+
+  const noteIdRef = useRef<string>(noteId || "");
+
 
   //Apply Codeblock Highlighting on the HTML from editor.getHTML()
   const highlightCodeblocks = (content: string) => {
@@ -56,17 +60,10 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
   };
 
   useEffect(() => {
-    // 如果是首次加载或noteId变化，才设置loading状态
-    if (currentNoteIdRef.current !== noteId) {
-      setLoading(true);
-      currentNoteIdRef.current = noteId;
-    }
-    
     const initController = async () => {
       try {
-        const noteController = new NoteController();
+        const noteController = await NoteController.create();
         setController(noteController);
-
         if (noteId) {
           const note = await noteController.getNoteById(parseInt(noteId));
           if (note) {
@@ -80,16 +77,17 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
         }
 
         // 如果没有找到笔记或没有noteId，则使用本地存储或默认内容
-        const content = window.localStorage.getItem("novel-content");
-        if (content) setInitialContent(JSON.parse(content));
-        else setInitialContent(defaultEditorContent);
-        setEditorKey(noteId || "default");
+        // const content = window.localStorage.getItem("novel-content");
+        // if (content) setInitialContent(JSON.parse(content));
+        // else
+        setInitialContent(defaultEditorContent);
+        setEditorKey(noteId || "");
         setLoading(false);
       } catch (err) {
         console.error("Error initializing:", err);
         // 如果出错，使用默认内容
         setInitialContent(defaultEditorContent);
-        setEditorKey(noteId || "error");
+        setEditorKey(noteId || "");
         setLoading(false);
       }
     };
@@ -101,6 +99,8 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
     async (editor: EditorInstance) => {
       const json = editor.getJSON();
       setCharsCount(editor.storage.characterCount.words());
+
+      const htmlContent = highlightCodeblocks(editor.getHTML());
 
       // 从内容中提取标题（第一行文本）
       const getTitleFromContent = (content: JSONContent) => {
@@ -120,23 +120,25 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
       };
 
       // 保存到数据库
-      if (controller && noteId) {
+      if (noteIdRef.current && controller) {
         try {
           const title = getTitleFromContent(json);
-          await controller.updateNote(
-            parseInt(noteId),
+          const updatedNote = await controller.updateNote(parseInt(noteIdRef.current), {
             title,
-            JSON.stringify(json)
-          );
+            content: JSON.stringify(json),
+            html_content: htmlContent,
+            is_favorite: false,
+            parent_id: null,
+          });
           // 发布自定义事件，通知其他组件标题已更新
-          const event = new CustomEvent('note-title-updated', { 
-            detail: { 
-              noteId: parseInt(noteId), 
-              title 
-            } 
+          const event = new CustomEvent("note-title-updated", {
+            detail: {
+              noteId: updatedNote.id,
+              title: updatedNote.title,
+            },
           });
           window.dispatchEvent(event);
-          
+
           setSaveStatus("Saved");
         } catch (err) {
           console.error("Error saving to database:", err);
@@ -146,23 +148,21 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
         // 如果没有noteId，说明是新建笔记
         try {
           const title = getTitleFromContent(json);
-          const newNoteId = await controller.createNote(
+          const newNote = await controller.createNote({
             title,
-            JSON.stringify(json)
-          );
-          
+            content: JSON.stringify(json),
+            html_content: htmlContent,
+            is_favorite: false,
+            parent_id: null,
+          });
+
           // 发布自定义事件，通知边栏刷新笔记列表
-          window.dispatchEvent(new CustomEvent('refresh-notes-tree'));
-          
+          window.dispatchEvent(new CustomEvent("refresh-notes-tree"));
+
           // 更新当前组件的noteId，避免重复创建
-          if (newNoteId) {
-            // 使用history API更新URL，不刷新页面
-            window.history.replaceState(null, '', `/editor/${newNoteId}`);
-            // 更新editorKey触发重新渲染
-            setEditorKey(String(newNoteId));
-            currentNoteIdRef.current = String(newNoteId);
-          }
-          
+          noteIdRef.current = String(newNote.id);
+
+
           setSaveStatus("Saved");
         } catch (err) {
           console.error("Error creating note:", err);
@@ -171,10 +171,7 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
       }
 
       // 同时保存到本地存储
-      window.localStorage.setItem(
-        "html-content",
-        highlightCodeblocks(editor.getHTML())
-      );
+      window.localStorage.setItem("html-content", htmlContent);
       window.localStorage.setItem("novel-content", JSON.stringify(json));
     },
     500
@@ -211,8 +208,8 @@ const TailwindAdvancedEditor = ({ noteId }: { noteId?: string }) => {
       </div>
       <EditorRoot>
         <EditorContent
-          key={editorKey} // 使用editorKey而不是直接使用noteId
-          initialContent={initialContent}
+          key={editorKey}
+          initialContent={initialContent || undefined}
           extensions={extensions}
           className="relative min-h-[500px] w-full max-w-screen-lg border-muted bg-background sm:rounded-lg sm:border sm:shadow-lg focus-visible:outline-none"
           editorProps={{

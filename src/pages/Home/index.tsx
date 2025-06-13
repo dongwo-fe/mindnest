@@ -1,212 +1,126 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import Database from "@tauri-apps/plugin-sql";
 import { NoteController } from "../../controllers/NoteController";
-import type { Note } from "../../models/Note";
+import type { NoteData } from "../../types";
 import styles from "./styles.module.css";
-import { appDataDir } from "@tauri-apps/api/path";
-
-interface Tag {
-  id: number;
-  name: string;
-  color: string;
-}
-
-interface NoteWithTags extends Note {
-  tags: Tag[];
-}
 
 export default function Home() {
   const navigate = useNavigate();
-  const [notes, setNotes] = useState<NoteWithTags[]>([]);
+  const [notes, setNotes] = useState<NoteData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [controller, setController] = useState<NoteController | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pageSize = 10;
 
-  useEffect(() => {
-    const initController = async () => {
-      try {
-       
+  // 加载笔记
+  const loadNotes = async (pageNum: number, append: boolean = false) => {
+    try {
+      const noteController = await NoteController.create();
+      const result = await noteController.getNotesByPage({
+        page: pageNum,
+        pageSize
+      });
 
-        const noteController = new NoteController();
-        setController(noteController);
-        const notesWithTags = await noteController.getNotesWithTags();
-        setNotes(notesWithTags);
-      } catch (err) {
-        console.error("Error initializing:", err);
-        setError("初始化失败");
-      } finally {
-        setLoading(false);
+      setHasMore(result.hasMore);
+      if (append) {
+        setNotes(prev => [...prev, ...result.items]);
+      } else {
+        setNotes(result.items);
       }
-    };
+    } catch (err) {
+      console.error("Error loading notes:", err);
+      setError("加载笔记失败");
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
 
-    initController();
+  // 初始加载
+  useEffect(() => {
+    loadNotes(1);
   }, []);
 
-  const handleClearDatabase = async () => {
-    if (!controller) return;
-    try {
-      await controller.clearDatabase();
-      setNotes([]);
-      setShowConfirmDialog(false);
-    } catch (err) {
-      console.error("Error clearing database:", err);
-      setError("清空数据库失败");
+  // 处理滚动加载
+  const handleScroll = useCallback(() => {
+    if (!containerRef.current || isLoadingMore || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      loadNotes(nextPage, true);
     }
+  }, [isLoadingMore, hasMore, page]);
+
+  // 监听滚动事件
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [handleScroll]);
+
+  const handleNoteClick = (id: number) => {
+    navigate(`/editor/${id}`);
   };
 
-  const handleCreateNote = async () => {
-    if (!controller) {
-      setError("控制器未初始化");
-      return;
-    }
-
-    try {
-      await controller.createNote("", "");
-      const notes = await controller.getAllNotes();
-      const newNote = notes[0]; // 获取最新创建的笔记
-      navigate(`/editor/${newNote.id}?isEditing=true`);
-    } catch (err) {
-      console.error("Error creating note:", err);
-      setError("创建笔记失败");
-    }
+  const handleCreateNote = () => {
+    navigate("/editor");
   };
 
-  const handleNoteClick = (noteId: number) => {
-    navigate(`/editor/${noteId}`);
-  };
-
-  if (loading) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <h1>我的笔记</h1>
-          <div className={styles.actions}>
-            <button onClick={() => navigate("/editor?new=true")}>
-              新建笔记
-            </button>
-            <button
-              onClick={() => setShowConfirmDialog(true)}
-              className={styles.dangerButton}
-            >
-              清空数据库
-            </button>
-          </div>
-        </div>
-        <div className={styles.content}>
-          <p>加载中...</p>
-        </div>
-      </div>
-    );
+  if (loading && notes.length === 0) {
+    return <div className={styles.loading}>加载中...</div>;
   }
 
-  if (error) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <h1>我的笔记</h1>
-          <div className={styles.actions}>
-            <button onClick={() => navigate("/editor?new=true")}>
-              新建笔记
-            </button>
-            <button
-              onClick={() => setShowConfirmDialog(true)}
-              className={styles.dangerButton}
-            >
-              清空数据库
-            </button>
-          </div>
-        </div>
-        <div className={styles.content}>
-          <p className={styles.error}>{error}</p>
-        </div>
-      </div>
-    );
+  if (error && notes.length === 0) {
+    return <div className={styles.error}>{error}</div>;
   }
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} ref={containerRef}>
       <div className={styles.header}>
         <h1>我的笔记</h1>
-        <div className={styles.actions}>
-          <button onClick={handleCreateNote}>新建笔记</button>
-          <button
-            onClick={() => setShowConfirmDialog(true)}
-            className={styles.dangerButton}
-          >
-            清空数据库
-          </button>
-        </div>
+        <button className={styles.createButton} onClick={handleCreateNote}>
+          新建笔记
+        </button>
       </div>
-
-      {showConfirmDialog && (
-        <div className={styles.confirmDialog}>
-          <div className={styles.confirmContent}>
-            <h3>确认清空数据库？</h3>
-            <p>此操作将删除所有笔记和标签，且不可恢复。</p>
-            <div className={styles.confirmActions}>
-              <button
-                onClick={handleClearDatabase}
-                className={styles.dangerButton}
-              >
-                确认清空
-              </button>
-              <button onClick={() => setShowConfirmDialog(false)}>取消</button>
+      <div className={styles.notesGrid}>
+        {notes.map((note) => (
+          <div
+            key={note.id}
+            className={styles.noteCard}
+            onClick={() => handleNoteClick(note.id)}
+          >
+            <h2 className={styles.noteTitle}>{note.title}</h2>
+            <div 
+              className={styles.noteContent}
+              dangerouslySetInnerHTML={{ __html: note.html_content || '' }}
+            />
+            <div className={styles.noteMeta}>
+              <span className={styles.noteDate}>
+                {new Date(note.updated_at).toLocaleString()}
+              </span>
+              {note.is_favorite && (
+                <span className={styles.favoriteIcon}>★</span>
+              )}
             </div>
           </div>
-        </div>
-      )}
-
-      <div className={styles.content}>
-        {notes.length === 0 ? (
-          <div className={styles.emptyState}>
-            <p>还没有笔记，点击右上角按钮创建第一篇笔记</p>
-          </div>
-        ) : (
-          <div className={styles.noteList}>
-            {notes.map((note) => (
-              <div
-                key={note.id}
-                className={styles.noteItem}
-                onClick={() => handleNoteClick(note.id)}
-              >
-                <h2>{note.title}</h2>
-                <div className={styles.tagsList}>
-                  {note.tags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className={styles.tag}
-                      style={{ backgroundColor: tag.color }}
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
-                <div className={styles.noteMeta}>
-                  <span>
-                    创建时间：{new Date(note.created_at).toLocaleString()}
-                  </span>
-                  {note.updated_at && (
-                    <span>
-                      {" "}
-                      | 更新时间：{new Date(note.updated_at).toLocaleString()}
-                    </span>
-                  )}
-                </div>
-                <div
-                  className={styles.notePreview}
-                  dangerouslySetInnerHTML={{
-                    __html:
-                      note.content.replace(/<[^>]+>/g, "").slice(0, 200) +
-                      "...",
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
+        ))}
       </div>
+      {isLoadingMore && (
+        <div className={styles.loadingMore}>加载中...</div>
+      )}
+      {!hasMore && notes.length > 0 && (
+        <div className={styles.noMore}>没有更多笔记了</div>
+      )}
     </div>
   );
 }

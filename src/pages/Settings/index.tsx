@@ -49,7 +49,7 @@ export default function Settings() {
   // 清空数据库
   const handleClearDatabase = async () => {
     try {
-      const controller = new NoteController();
+      const controller = await NoteController.create();
       await controller.clearDatabase();
       setShowConfirmClear(false);
       showMessage("数据库已清空");

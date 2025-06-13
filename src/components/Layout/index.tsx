@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { NoteController } from "../../controllers/NoteController";
 import styles from "./styles.module.css";
@@ -24,9 +24,16 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Note[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const searchResultsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   // 构建树形结构
   function buildTree(flatNotes: {id: number, title: string, parent_id: number | null}[]): Note[] {
@@ -63,9 +70,8 @@ export default function Layout({ children }: LayoutProps) {
   const refreshNotes = async () => {
     try {
       setLoading(true);
-      const noteController = new NoteController();
+      const noteController = await NoteController.create();
       const flatNotes = await noteController.getAllNotes();
-      // @ts-expect-error - 忽略类型检查，因为我们知道这个结构是兼容的
       const tree = buildTree(flatNotes);
       console.log("[边栏] 当前目录树结构:", tree);
       setNotes(tree);
@@ -229,6 +235,76 @@ export default function Layout({ children }: LayoutProps) {
     });
   }
 
+  // 搜索笔记
+  const searchNotes = (query: string, pageNum = 1) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      setHasMore(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const pageSize = 10;
+    const startIndex = (pageNum - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    const allResults = notes.filter(note => {
+      const searchStr = `${note.title} ${note.content || ''}`.toLowerCase();
+      return searchStr.includes(query.toLowerCase());
+    });
+
+    const paginatedResults = allResults.slice(startIndex, endIndex);
+    setHasMore(endIndex < allResults.length);
+
+    if (pageNum === 1) {
+      setSearchResults(paginatedResults);
+    } else {
+      setSearchResults(prev => [...prev, ...paginatedResults]);
+    }
+  };
+
+  // 处理搜索输入
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    setPage(1);
+    searchNotes(query, 1);
+  };
+
+  // 处理搜索结果的点击
+  const handleSearchResultClick = (noteId: number) => {
+    navigate(`/editor/${noteId}`);
+    setSearchQuery("");
+    setSearchResults([]);
+    setIsSearching(false);
+  };
+
+  // 处理滚动加载
+  const handleScroll = useCallback(() => {
+    if (!searchResultsRef.current || isLoadingMore || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = searchResultsRef.current;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      setPage(nextPage);
+      searchNotes(searchQuery, nextPage);
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, page, searchQuery]);
+
+  // 监听滚动事件
+  useEffect(() => {
+    const searchResultsElement = searchResultsRef.current;
+    if (searchResultsElement) {
+      searchResultsElement.addEventListener('scroll', handleScroll);
+      return () => {
+        searchResultsElement.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [handleScroll]);
+
   return (
     <div className={styles.layout}>
       <div
@@ -238,11 +314,37 @@ export default function Layout({ children }: LayoutProps) {
         style={{ width: isSidebarExpanded ? sidebarWidth : 64 }}
       >
         <div className={styles.sidebarHeader}>
-          <input
-            type="search"
-            placeholder="搜索"
-            className={styles.sidebarSearchInput}
-          />
+          <div className={styles.searchContainer}>
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="搜索笔记..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+            {isSearching && (
+              <div className={styles.searchResults} ref={searchResultsRef}>
+                {searchResults.map(note => (
+                  <div
+                    key={note.id}
+                    className={styles.searchResultItem}
+                    onClick={() => handleSearchResultClick(note.id)}
+                  >
+                    <div className={styles.searchResultTitle}>{note.title}</div>
+                    <div className={styles.searchResultPreview}>
+                      {note.content?.replace(/<[^>]+>/g, "").slice(0, 50)}...
+                    </div>
+                  </div>
+                ))}
+                {isLoadingMore && (
+                  <div className={styles.loadingMore}>加载中...</div>
+                )}
+                {!hasMore && searchResults.length > 0 && (
+                  <div className={styles.noMore}>没有更多结果了</div>
+                )}
+              </div>
+            )}
+          </div>
           <button
             className={`${styles.homeButton} ${isHome ? styles.selected : ""}`}
             onClick={() => navigate("/")}

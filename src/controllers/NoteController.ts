@@ -1,110 +1,143 @@
-import { BaseController } from './BaseController';
 import { NoteModel } from '../models/Note';
-import { TagController } from './TagController';
-import type { Note, Tag, NoteWithTags } from '../types';
-import { databaseManager } from '../utils/DatabaseManager';
-import Database from '@tauri-apps/plugin-sql';
+import type { NoteData } from '../types';
+import { DatabaseManager } from '../utils/DatabaseManager';
 
-export class NoteController extends BaseController {
-  private tagController!: TagController;
-  private initialized = false;
+// 分页参数接口
+interface PaginationParams {
+  page: number;
+  pageSize: number;
+}
 
-  constructor() {
-    super(null as unknown as Database);
-    this.initialize();
+// 分页结果接口
+interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export class NoteController {
+  private constructor(private model: NoteModel) {}
+
+  static async create(): Promise<NoteController> {
+    const db = await DatabaseManager.getInstance().getDatabase();
+    const model = new NoteModel(db);
+    return new NoteController(model);
   }
 
-  private async initialize() {
-    if (this.initialized) return;
+  // 获取分页笔记列表
+  async getNotesByPage(params: PaginationParams): Promise<PaginatedResult<NoteData>> {
+    const { page, pageSize } = params;
+    const offset = (page - 1) * pageSize;
     
-    const db = await databaseManager.getDatabase();
-    this.db = db;
-    this.model = new NoteModel(db);
-    this.tagController = new TagController(db);
-    await this.initializeDatabase();
-    this.initialized = true;
+    const [items, total] = await Promise.all([
+      this.model.findByPage(offset, pageSize),
+      this.model.getTotalCount()
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      hasMore: offset + items.length < total
+    };
   }
 
-  private async ensureInitialized() {
-    if (!this.initialized) {
-      await this.initialize();
-    }
+  // 搜索笔记（带分页）
+  async searchNotes(query: string, params: PaginationParams): Promise<PaginatedResult<NoteData>> {
+    const { page, pageSize } = params;
+    const offset = (page - 1) * pageSize;
+    
+    const [items, total] = await Promise.all([
+      this.model.search(query, offset, pageSize),
+      this.model.getSearchCount(query)
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      hasMore: offset + items.length < total
+    };
   }
 
-  async getAllNotes(): Promise<Note[]> {
-    await this.ensureInitialized();
-    return this.model.getAllNotes();
+  // 获取最近笔记（带分页）
+  async getRecentNotesByPage(params: PaginationParams): Promise<PaginatedResult<NoteData>> {
+    const { page, pageSize } = params;
+    const offset = (page - 1) * pageSize;
+    
+    const [items, total] = await Promise.all([
+      this.model.getRecentNotesByPage(offset, pageSize),
+      this.model.getTotalCount()
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      hasMore: offset + items.length < total
+    };
   }
 
-  async createNote(title: string, content: string, parent_id: number | null = null): Promise<number> {
-    await this.ensureInitialized();
-    return this.model.createNote(title, content, parent_id);
+  // 获取收藏笔记（带分页）
+  async getFavoriteNotesByPage(params: PaginationParams): Promise<PaginatedResult<NoteData>> {
+    const { page, pageSize } = params;
+    const offset = (page - 1) * pageSize;
+    
+    const [items, total] = await Promise.all([
+      this.model.getFavoriteNotesByPage(offset, pageSize),
+      this.model.getFavoriteCount()
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      hasMore: offset + items.length < total
+    };
   }
 
-  async updateNote(id: number, title: string, content: string): Promise<void> {
-    await this.ensureInitialized();
-    await this.model.updateNote(id, title, content);
+  // 笔记相关业务逻辑
+  async getAllNotes(): Promise<NoteData[]> {
+    return await this.model.findAll();
+  }
+
+  async createNote(data: Omit<NoteData, 'id' | 'created_at' | 'updated_at'>): Promise<NoteData> {
+    const note = await this.model.create(data);
+    return note as NoteData;
+  }
+
+  async updateNote(id: number, data: Partial<NoteData>): Promise<NoteData> {
+    const note = await this.model.update(id, data);
+    return note as NoteData;
   }
 
   async deleteNote(id: number): Promise<void> {
-    await this.ensureInitialized();
-    await this.model.deleteNote(id);
+    await this.model.delete(id);
   }
 
   async toggleFavorite(id: number): Promise<void> {
-    await this.ensureInitialized();
     await this.model.toggleFavorite(id);
   }
 
-  async getRecentNotes(limit: number = 10): Promise<Note[]> {
-    await this.ensureInitialized();
-    return this.model.getRecentNotes(limit);
+  async getNoteById(id: number): Promise<NoteData | null> {
+    return await this.model.findById(id);
   }
 
-  async getFavoriteNotes(): Promise<Note[]> {
-    await this.ensureInitialized();
-    return this.model.getFavoriteNotes();
+  async getRecentNotes(limit: number = 10): Promise<NoteData[]> {
+    return await this.model.getRecentNotes(limit);
   }
 
-  async getNoteById(id: number): Promise<Note | null> {
-    await this.ensureInitialized();
-    return this.model.getNoteById(id);
-  }
-
-  async getNoteTags(noteId: number): Promise<Tag[]> {
-    await this.ensureInitialized();
-    return this.tagController.getNoteTags(noteId);
-  }
-
-  async addTagToNote(noteId: number, tagId: number): Promise<void> {
-    await this.ensureInitialized();
-    await this.tagController.addTagToNote(noteId, tagId);
-  }
-
-  async removeTagFromNote(noteId: number, tagId: number): Promise<void> {
-    await this.ensureInitialized();
-    await this.db.execute(
-      "DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?",
-      [noteId, tagId]
-    );
-  }
-
-  async getNotesWithTags(): Promise<NoteWithTags[]> {
-    await this.ensureInitialized();
-    const notes = await this.getAllNotes();
-    const notesWithTags = await Promise.all(
-      notes.map(async (note) => {
-        const tags = await this.getNoteTags(note.id);
-        return { ...note, tags };
-      })
-    );
-    return notesWithTags;
+  async getFavoriteNotes(): Promise<NoteData[]> {
+    return await this.model.getFavoriteNotes();
   }
 
   async clearDatabase(): Promise<void> {
-    await this.ensureInitialized();
-    await this.db.execute("DELETE FROM note_tags");
-    await this.db.execute("DELETE FROM notes");
-    await this.db.execute("DELETE FROM tags");
+    await DatabaseManager.getInstance().clearDatabase();
   }
 }
