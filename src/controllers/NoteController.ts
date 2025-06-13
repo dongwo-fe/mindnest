@@ -41,9 +41,9 @@ export class NoteController extends BaseController {
     return this.model.createNote(title, content, parent_id);
   }
 
-  async updateNote(id: number, title: string, content: string, parent_id: number | null = null): Promise<void> {
+  async updateNote(id: number, title: string, content: string): Promise<void> {
     await this.ensureInitialized();
-    await this.model.updateNote(id, title, content, parent_id);
+    await this.model.updateNote(id, title, content);
   }
 
   async deleteNote(id: number): Promise<void> {

@@ -27,8 +27,7 @@ export default function Home() {
   useEffect(() => {
     const initController = async () => {
       try {
-        const appDataDirPath = await appDataDir();
-        console.log("appDataDirPath", appDataDirPath);
+       
 
         const noteController = new NoteController();
         setController(noteController);

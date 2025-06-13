@@ -26,10 +26,20 @@ import {
 import { cx } from "class-variance-authority";
 import { common, createLowlight } from "lowlight";
 
+const PlaceholderExtension = Placeholder.configure({
+  placeholder: ({ node }) => {
+    if (node.type.name === "heading") {
+      return `标题 ${node.attrs.level}`;
+    }
+    return "输入 '/' 唤起更多";
+  },
+  includeChildren: true,
+});
+
 //TODO I am using cx here to get tailwind autocomplete working, idk if someone else can write a regex to just capture the class key in objects
 const aiHighlight = AIHighlight;
 //You can overwrite the placeholder with your own configuration
-const placeholder = Placeholder;
+const placeholder = PlaceholderExtension;
 const tiptapLink = TiptapLink.configure({
   HTMLAttributes: {
     class: cx(

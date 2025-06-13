@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Database from "@tauri-apps/plugin-sql";
 import { NoteController } from "../../controllers/NoteController";
 import styles from "./styles.module.css";
 
-
+// 定义本地使用的Note接口
 interface Note {
   id: number;
   title: string;
+  content?: string;
+  created_at?: string;
+  updated_at?: string;
   parent_id: number | null;
-  children?: Note[];
+  is_favorite?: number;
+  children: Note[];
 }
 
 interface LayoutProps {
@@ -26,17 +29,33 @@ export default function Layout({ children }: LayoutProps) {
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   // 构建树形结构
-  function buildTree(flatNotes: Note[]): Note[] {
-    const map = new Map<number, Note & { children: Note[] }>();
+  function buildTree(flatNotes: {id: number, title: string, parent_id: number | null}[]): Note[] {
+    // 将扁平笔记转换为带有children数组的笔记
+    const notesWithChildren = flatNotes.map(note => ({
+      ...note,
+      children: []
+    }));
+    
+    // 使用ID映射所有笔记，方便查找
+    const noteMap = new Map<number, Note>();
+    notesWithChildren.forEach(note => {
+      noteMap.set(note.id, note as Note);
+    });
+    
+    // 创建树结构
     const roots: Note[] = [];
-    flatNotes.forEach((note) => map.set(note.id, { ...note, children: [] }));
-    flatNotes.forEach((note) => {
-      if (note.parent_id && map.has(note.parent_id)) {
-        map.get(note.parent_id)!.children.push(map.get(note.id)!);
+    notesWithChildren.forEach(note => {
+      const parentId = note.parent_id;
+      if (parentId !== null && noteMap.has(parentId)) {
+        // 有父节点，添加到父节点的children中
+        const parent = noteMap.get(parentId)!;
+        parent.children.push(noteMap.get(note.id)!);
       } else {
-        roots.push(map.get(note.id)!);
+        // 没有父节点或父节点不存在，作为根节点
+        roots.push(noteMap.get(note.id)!);
       }
     });
+    
     return roots;
   }
 
@@ -45,7 +64,8 @@ export default function Layout({ children }: LayoutProps) {
     try {
       setLoading(true);
       const noteController = new NoteController();
-      const flatNotes: Note[] = await noteController.getAllNotes();
+      const flatNotes = await noteController.getAllNotes();
+      // @ts-expect-error - 忽略类型检查，因为我们知道这个结构是兼容的
       const tree = buildTree(flatNotes);
       console.log("[边栏] 当前目录树结构:", tree);
       setNotes(tree);
@@ -58,6 +78,49 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     refreshNotes();
+  }, []);
+
+  // 监听标题更新事件
+  useEffect(() => {
+    const handleTitleUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{noteId: number, title: string}>;
+      const { noteId, title } = customEvent.detail;
+      
+      // 更新笔记树中的标题
+      setNotes(prevNotes => {
+        // 创建一个深拷贝的函数，用于更新树中的标题
+        const updateTitleInTree = (nodes: Note[]): Note[] => {
+          return nodes.map(node => {
+            if (node.id === noteId) {
+              return { ...node, title };
+            }
+            if (node.children && node.children.length > 0) {
+              return {
+                ...node,
+                children: updateTitleInTree(node.children)
+              };
+            }
+            return node;
+          });
+        };
+        
+        return updateTitleInTree(prevNotes);
+      });
+    };
+    
+    // 监听刷新笔记树事件
+    const handleRefreshNotes = () => {
+      console.log("[边栏] 收到刷新笔记树事件");
+      refreshNotes();
+    };
+    
+    window.addEventListener('note-title-updated', handleTitleUpdate);
+    window.addEventListener('refresh-notes-tree', handleRefreshNotes);
+    
+    return () => {
+      window.removeEventListener('note-title-updated', handleTitleUpdate);
+      window.removeEventListener('refresh-notes-tree', handleRefreshNotes);
+    };
   }, []);
 
   // 处理快捷键
@@ -105,10 +168,13 @@ export default function Layout({ children }: LayoutProps) {
       return;
     }
     console.log(`[边栏] 新建子笔记，父ID: ${parentId}`);
-    const db = await Database.load("sqlite:notes.db");
-    const noteController = new NoteController(db);
-    await noteController.createNote("无标题文档", "", parentId);
-    await refreshNotes();
+    try {
+      const noteController = new NoteController();
+      await noteController.createNote("无标题文档", "", parentId);
+      await refreshNotes();
+    } catch (error) {
+      console.error("创建子笔记失败:", error);
+    }
   };
 
   const toggleExpand = (id: number) => {
@@ -122,45 +188,45 @@ export default function Layout({ children }: LayoutProps) {
 
   // 递归渲染树
   function renderTree(nodes: Note[], level = 1) {
-  return nodes.map((node) => {
-    const hasChildren = node.children && node.children.length > 0;
-    const expanded = expandedIds.has(node.id);
-    return (
-      <li
-        key={node.id}
-        className={`${styles.treeItem} ${styles[`level-${level}`]}`}
-        style={{ margin: '4px 0', position: 'relative' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', minHeight: '32px' }}>
-          {hasChildren ? (
+    return nodes.map((node) => {
+      const hasChildren = node.children && node.children.length > 0;
+      const expanded = expandedIds.has(node.id);
+      return (
+        <li
+          key={node.id}
+          className={`${styles.treeItem} ${styles[`level-${level}`]}`}
+          style={{ margin: '4px 0', position: 'relative' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', minHeight: '32px' }}>
+            {hasChildren ? (
+              <span
+                className={`${styles.arrow} ${expanded ? styles.open : ''}`}
+                onClick={e => { e.stopPropagation(); toggleExpand(node.id); }}
+              >▶</span>
+            ) : (
+              <span style={{ display: 'inline-block', width: '16px' }}></span>
+            )}
             <span
-              className={`${styles.arrow} ${expanded ? styles.open : ''}`}
-              onClick={e => { e.stopPropagation(); toggleExpand(node.id); }}
-            >▶</span>
-          ) : (
-            <span style={{ display: 'inline-block', width: '16px' }}></span>
+              className={styles.title}
+              onClick={() => navigate(`/editor/${node.id}`)}
+            >{node.title || '无标题文档'}</span>
+            <button
+              className={styles.addChildBtn}
+              title="在此下方新建子文档"
+              onClick={e => { e.stopPropagation(); handleAddChildNote(node.id, level); }}
+              style={{ alignSelf: 'center' }}
+            >
+              ＋
+            </button>
+          </div>
+          {hasChildren && expanded && (
+            <ul className={styles.tree} style={{ marginLeft: '4px', paddingLeft: '0', marginTop: '0' }}>
+              {renderTree(node.children || [], level < 5 ? level + 1 : 5)}
+            </ul>
           )}
-          <span
-            className={styles.title}
-            onClick={() => navigate(`/editor/${node.id}`)}
-          >{node.title || '无标题文档'}</span>
-          <button
-            className={styles.addChildBtn}
-            title="在此下方新建子文档"
-            onClick={e => { e.stopPropagation(); handleAddChildNote(node.id, level); }}
-            style={{ alignSelf: 'center' }}
-          >
-            ＋
-          </button>
-        </div>
-        {hasChildren && expanded && (
-          <ul className={styles.tree} style={{ marginLeft: '4px', paddingLeft: '0', marginTop: '0' }}>
-            {renderTree(node.children, level < 5 ? level + 1 : 5)}
-          </ul>
-        )}
-      </li>
-    );
-  });
+        </li>
+      );
+    });
   }
 
   return (
@@ -233,8 +299,9 @@ export default function Layout({ children }: LayoutProps) {
             className={styles.toolbarButton}
             onClick={() => navigate("/settings")}
             title="设置"
+            style={{ display: 'flex' }}
           >
-            <span className={styles.icon}>⚙️</span>
+            <span className={styles.icon} style={{ display: 'inline-block' }}>⚙️</span>
           </button>
         </div>
 

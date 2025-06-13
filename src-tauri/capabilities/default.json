@@ -9,6 +9,11 @@
     "sql:allow-load",
     "sql:allow-execute",
     "sql:allow-select",
-    "sql:allow-close"
+    "sql:allow-close",
+    "shell:default",
+    "shell:allow-open",
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:webview:default"
   ]
 }

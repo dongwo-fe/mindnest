@@ -137,7 +137,7 @@ export default function EditorPage() {
     <div className={styles.container}>
       {/* <div>{note?.title}</div>
       <div>{note?.content}</div> */}
-      <TailwindAdvancedEditor />
+      <TailwindAdvancedEditor noteId={noteId}/>
     </div>
   );
 }
